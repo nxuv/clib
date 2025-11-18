@@ -17,13 +17,3 @@ configuration "library_bc" {
     targetPath "bin/"
 }
 
-configuration "unittest" {
-    targetType "executable"
-    sourcePaths "test/"
-    importPaths "test/"
-    sourcePaths "src/"
-    importPaths "src/"
-    mainSourceFile "test/test.d"
-    targetName "clib-test-library"
-    targetPath "bin/"
-}

@@ -24,8 +24,8 @@ struct map(K, V, A: IAllocator!V = allocator!V) {
 
     void insert(K key, V value) @nogc nothrow {
         if (root is null) { root = alloc_node(); }
-        Pair newPair = Pair(key, value);
-        insert_impl(root, newPair, null);
+
+        insert_impl(root, pair, null);
     }
 
     private Node* insert_impl(Node* root, Pair pair, Node* parent) {
@@ -90,13 +90,13 @@ struct map(K, V, A: IAllocator!V = allocator!V) {
             // TODO: move leafs LR
             // 0 .. N-1 / 2 go left
             for (size_t i = 0; i < split; ++i) {
-                left.pairs[i] = root.pairs[i];
+                left.pairs[i] = root[i];
                 left.filled += 1;
             }
 
             // N-1 / 2 + 1 .. N-1 go right
             for (size_t i = split + 1; i < Node.N - 1; ++i) {
-                right.pairs[i - split - 1] = root.pairs[i];
+                right.pairs[i - split - 1] = root[i];
                 right.filled += 1;
             }
 
@@ -134,16 +134,7 @@ struct map(K, V, A: IAllocator!V = allocator!V) {
     }
 
     V search(K key) @nogc nothrow {
-        Node* node = root;
-        while (node !is null) {
-            foreach (i; 0..node.filled) {
-                if (node.pairs[i].key == key) {
-                    return node.pairs[i].val;
-                }
-            }
-            node = node.next_node(key);
-        }
-        return V.init; // Return default value if key not found
+        // if (_tree.root is null) return T.init;
     }
 
     private Node* alloc_node() @nogc nothrow {
@@ -156,32 +147,17 @@ private struct TreeNode(K, V) {
     static const size_t N = 6; // Keep it even
 
     TreePair!(K, V)[N - 1] pairs;
+
     TreeNode!(K, V)* parent = null;
     TreeNode!(K, V)*[N] children = null;
+
     bool is_leaf = false;
     size_t filled;
 
-    ref TreePair!(K, V) opIndex(size_t i) @nogc nothrow {
-        return pairs[i];
-    }
-
-    TreeNode!(K, V)* next_node(K key) @nogc nothrow {
-        // implement binary tree traversal
-        if (filled == 0) return null;
-
-        foreach (i; 0..filled) {
-            if (key < pairs[i].key) return children[i];
-            if (key == pairs[i].key) return children[i + 1];
-        }
-        return children[filled];
-    }
-
     void free(A: IAllocator!T, T)(A alloc) @nogc nothrow {
         for (size_t i = 0; i < N; ++i) {
-            if (children[i] !is null) {
-                children[i].free(alloc);
-                alloc.deallocate_vptr(cast(void*) children[i]);
-            }
+            children[i].free(alloc);
+            alloc.deallocate_vptr(cast(void*) children[i]);
         }
     }
 }

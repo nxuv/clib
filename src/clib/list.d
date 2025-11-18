@@ -375,542 +375,91 @@ struct list(T, A: IAllocator!T = allocator!T) {
         }
         return node;
     }
+}
 
-    /++ Transfers elements from another list to this list
-        Params:
-          position = Position in this list where elements will be inserted
-          other = List to transfer elements from
-          start = Start position in other list (inclusive)
-          end = End position in other list (inclusive)
-    +/
-    void splice(size_t position, ref list!(T, A) other,
-                size_t start = 0, size_t end = size_t.max) @nogc nothrow
-    {
-        if (_allocator is null) _allocator = _new!A();
+@nogc nothrow:
+// Unittests
 
-        // Early exit conditions
-        if (other._root is null || start >= other._size) return;
-        if (&other == &this) return; // Prevent self-splicing
-        if (end >= other._size) end = other._size - 1;
-        if (start > end) return;
-        if (position > _size) position = _size;
+unittest {
+    list!int q = list!int(1, 2, 3, 4);
+    assert(q.size == 4);
+    assert(q.front == 1);
+    assert(q.back == 4);
+    assert(q.pop_front() == 1);
+    assert(q.pop_back() == 4);
+    assert(q.front == 2);
+    assert(q.back == 3);
+    assert(q.size == 2);
+    assert(q.array == [2, 3]);
+}
 
-        // Get nodes from other list
-        Node* first = other.get_node_at(start);
-        Node* last = other.get_node_at(end);
-        if (first is null || last is null) return;
+unittest {
+    list!int q;
+    assert(q.empty);
+    assert(q.front == int.init);
+    assert(q.back == int.init);
+    q.push_front(3, 2, 1);
+    assert(q.front == 1);
+    assert(q.back == 3);
+    q ~= 3;
+    q.push_back(2);
+    assert(q.front == 1);
+    assert(q.array == [1, 2, 3, 3, 2]);
+}
 
-        size_t elements_to_move = end - start + 1;
-        if (elements_to_move == 0) return;
+unittest {
+    list!int q = list!int(1, 2, 3, 4);
+    q.clear();
+    assert(q.size == 0);
+    assert(q.pop_front() == int.init);
+    assert(q.pop_back() == int.init);
+}
 
-        // Update other list's links
-        Node* prev_first = first.prev;
-        Node* next_last = last.next;
+unittest {
+    list!int q = list!int(1, 2, 3, 4);
+    q.push_back(5, 6, 7, 8, 9, 10);
+    q.limit_length(7);
+    assert(q.size == 7);
+    assert(q.array == [1, 2, 3, 4, 5, 6, 7]);
+}
 
-        // Disconnect nodes from other list
-        if (prev_first !is null) prev_first.next = next_last;
-        if (next_last !is null) next_last.prev = prev_first;
+unittest {
+    list!int q = list!int(1, 2, 3, 4);
+    q.insert(2, 5);
+    assert(q.array == [1, 2, 5, 3, 4]);
+}
 
-        // Update other's root/end if needed
-        if (start == 0) other._root = next_last;
-        if (end == other._size - 1) other._end = prev_first;
+unittest {
+    list!int q = list!int(0, 1, 2, 3, 4, 5, 6, 7, 8);
+    q.erase(2, 5);
+    assert(q.array == [0, 1, 6, 7, 8]);
+    assert(q.size == 5);
+    q.erase(0, 1);
+    assert(q.array == [6, 7, 8]);
+    assert(q.size == 3);
+    q.erase(1, 2);
+    assert(q.array == [6]);
+    assert(q.size == 1);
+    q = list!int(0, 1, 2, 3, 4, 5, 6, 7, 8);
+    q.erase(0);
+    q.erase(7);
+    assert(q.array == [1, 2, 3, 4, 5, 6, 7]);
+    // q.erase(5, 9);
+}
 
-        // Handle other list becoming empty
-        if (other._size == elements_to_move) {
-            other._root = null;
-            other._end = null;
-        }
-
-        // Update other's size
-        other._size -= elements_to_move;
-
-        // Insert into this list
-        if (_size == 0) {
-            _root = first;
-            _end = last;
-            first.prev = null;
-            last.next = null;
-        } else if (position == _size) {
-            _end.next = first;
-            first.prev = _end;
-            _end = last;
-            last.next = null;
-        } else if (position == 0) {
-            last.next = _root;
-            _root.prev = last;
-            _root = first;
-            first.prev = null;
-        } else {
-            Node* pos_node = get_node_at(position);
-            if (pos_node is null) return;
-            Node* prev_node = pos_node.prev;
-            if (prev_node is null) return;
-
-            prev_node.next = first;
-            first.prev = prev_node;
-            last.next = pos_node;
-            pos_node.prev = last;
-        }
-
-        // Update size to finish
-        _size += elements_to_move;
+unittest {
+    list!int l = list!int(1, 2, 4, 2, 6, 1);
+    int[6] a = [1, 2, 4, 2, 6, 1];
+    int i = 0;
+    foreach (v; l.begin()) {
+        assert(a[i] == v);
+        ++i;
     }
 
-    /++ Merges two sorted lists into one
-        Both lists must be sorted according to operator <
-        After the operation, other becomes empty
-        Params:
-          other = List to merge with this list
-    +/
-    void merge(ref list!(T, A) other) @nogc nothrow {
-        if (_allocator is null) _allocator = _new!A();
-        if (other._root is null) return;
-        if (&other == &this) return;
-
-        // Handle case when this list is empty
-        if (_root is null) {
-            _root = other._root;
-            _end = other._end;
-            _size = other._size;
-            other._root = null;
-            other._end = null;
-            other._size = 0;
-            return;
-        }
-
-        Node* current = _root;
-        Node* other_current = other._root;
-
-        // Handle case when first element from other should be at start
-        if (other_current.value < current.value) {
-            _root = other_current;
-            other_current = other_current.next;
-            _root.prev = null;
-            _root.next = current;
-            current.prev = _root;
-            current = _root;
-        }
-
-        // Merge the lists
-        while (other_current !is null) {
-            if (current.next is null) {
-                // Append remaining other elements
-                current.next = other_current;
-                other_current.prev = current;
-                _end = other._end;
-                break;
-            }
-
-            if (other_current.value < current.next.value) {
-                // Insert other_current between current and current.next
-                Node* next = other_current.next;
-                other_current.next = current.next;
-                other_current.prev = current;
-                current.next.prev = other_current;
-                current.next = other_current;
-                other_current = next;
-            } else {
-                current = current.next;
-            }
-        }
-
-        // Update sizes
-        _size += other._size;
-        other._root = null;
-        other._end = null;
-        other._size = 0;
-    }
-
-    /++ Sorts the list in ascending order using merge sort
-    The list is sorted in-place using operator <
-    +/
-    void sort() @nogc nothrow {
-        if (_root is null || _root.next is null) return;
-
-        _root = merge_sort_internal(_root);
-
-        // Fix end pointer and prev links
-        Node* current = _root;
-        while (current.next !is null) {
-            current.next.prev = current;
-            current = current.next;
-        }
-        _end = current;
-    }
-
-    private Node* merge_sorted_lists(Node* first, Node* second) @nogc nothrow {
-        if (first is null) return second;
-        if (second is null) return first;
-
-        Node* result;
-        if (first.value <= second.value) {
-            result = first;
-            result.next = merge_sorted_lists(first.next, second);
-            if (result.next !is null) result.next.prev = result;
-        } else {
-            result = second;
-            result.next = merge_sorted_lists(first, second.next);
-            if (result.next !is null) result.next.prev = result;
-        }
-        result.prev = null;
-        return result;
-    }
-
-    private Node* get_middle_node(Node* head) @nogc nothrow {
-        if (head is null || head.next is null) return head;
-
-        Node* slow = head;
-        Node* fast = head.next;
-
-        while (fast !is null) {
-            fast = fast.next;
-            if (fast !is null) {
-                fast = fast.next;
-                slow = slow.next;
-            }
-        }
-        return slow;
-    }
-
-    private Node* merge_sort_internal(Node* head) @nogc nothrow {
-        if (head is null || head.next is null) return head;
-
-        // Find middle point
-        Node* middle = get_middle_node(head);
-        Node* next_to_middle = middle.next;
-
-        // Split the list
-        middle.next = null;
-        if (next_to_middle !is null) next_to_middle.prev = null;
-
-        // Recursively sort
-        Node* left = merge_sort_internal(head);
-        Node* right = merge_sort_internal(next_to_middle);
-
-        // Merge sorted halves
-        return merge_sorted_lists(left, right);
-    }
-
-    /++ Reverses the order of elements in the list in-place +/
-    void reverse() @nogc nothrow {
-        if (_root is null || _root.next is null) return;
-
-        Node* prev = null;
-        Node* current = _root;
-        Node* next = null;
-
-        // Swap next and prev pointers for all nodes
-        while (current !is null) {
-            next = current.next;
-            current.next = prev;
-            current.prev = next;
-            prev = current;
-            current = next;
-        }
-
-        // Swap root and end
-        _end = _root;
-        _root = prev;
-    }
-
-    /++ Removes consecutive duplicate elements from the list.
-        The list must be sorted first if you want to remove all duplicates.
-    +/
-    void unique() @nogc nothrow {
-        if (_root is null || _root.next is null) return;
-
-        Node* current = _root;
-        while (current.next !is null) {
-            if (current.value == current.next.value) {
-                // Remove the next node
-                Node* to_remove = current.next;
-                current.next = to_remove.next;
-                if (to_remove.next !is null) {
-                    to_remove.next.prev = current;
-                } else {
-                    _end = current;
-                }
-                _allocator.deallocate_vptr(to_remove);
-                --_size;
-            } else {
-                current = current.next;
-            }
-        }
+    i = 5;
+    foreach_reverse (v; l.end()) {
+        assert(a[i] == v);
+        --i;
     }
 }
 
-@nogc nothrow {
-    // Unittests
-    unittest {
-        list!int q = list!int(1, 2, 3, 4);
-        assert(q.size == 4);
-        assert(q.front == 1);
-        assert(q.back == 4);
-        assert(q.pop_front() == 1);
-        assert(q.pop_back() == 4);
-        assert(q.front == 2);
-        assert(q.back == 3);
-        assert(q.size == 2);
-        assert(q.array == [2, 3]);
-    }
-
-    unittest {
-        list!int q;
-        assert(q.empty);
-        assert(q.front == int.init);
-        assert(q.back == int.init);
-        q.push_front(3, 2, 1);
-        assert(q.front == 1);
-        assert(q.back == 3);
-        q ~= 3;
-        q.push_back(2);
-        assert(q.front == 1);
-        assert(q.array == [1, 2, 3, 3, 2]);
-    }
-
-    unittest {
-        list!int q = list!int(1, 2, 3, 4);
-        q.clear();
-        assert(q.size == 0);
-        assert(q.pop_front() == int.init);
-        assert(q.pop_back() == int.init);
-    }
-
-    unittest {
-        list!int q = list!int(1, 2, 3, 4);
-        q.push_back(5, 6, 7, 8, 9, 10);
-        q.limit_length(7);
-        assert(q.size == 7);
-        assert(q.array == [1, 2, 3, 4, 5, 6, 7]);
-    }
-
-    unittest {
-        list!int q = list!int(1, 2, 3, 4);
-        q.insert(2, 5);
-        assert(q.array == [1, 2, 5, 3, 4]);
-    }
-
-    unittest {
-        list!int q = list!int(0, 1, 2, 3, 4, 5, 6, 7, 8);
-        q.erase(2, 5);
-        assert(q.array == [0, 1, 6, 7, 8]);
-        assert(q.size == 5);
-        q.erase(0, 1);
-        assert(q.array == [6, 7, 8]);
-        assert(q.size == 3);
-        q.erase(1, 2);
-        assert(q.array == [6]);
-        assert(q.size == 1);
-        q = list!int(0, 1, 2, 3, 4, 5, 6, 7, 8);
-        q.erase(0);
-        q.erase(7);
-        assert(q.array == [1, 2, 3, 4, 5, 6, 7]);
-        q.erase(7);
-    }
-
-    unittest {
-        list!int l = list!int(1, 2, 4, 2, 6, 1);
-        int[6] a = [1, 2, 4, 2, 6, 1];
-        int i = 0;
-        foreach (v; l.begin()) {
-            assert(a[i] == v);
-            ++i;
-        }
-
-        i = 5;
-        foreach_reverse (v; l.end()) {
-            assert(a[i] == v);
-            --i;
-        }
-    }
-
-    unittest {
-        import core.stdc.stdio : printf;
-
-        // Test full list splice
-        list!int l1 = list!int(1, 2, 3);
-        list!int l2 = list!int(4, 5, 6);
-        l1.splice(1, l2);
-
-        assert(l2.empty, "l2 should be empty");
-
-        // Test partial splice
-        l1 = list!int(1, 2, 3);
-        l2 = list!int(4, 5, 6, 7, 8);
-        l1.splice(0, l2, 1, 3);
-        assert(l1.array == [5, 6, 7, 1, 2, 3]);
-        assert(l2.array == [4, 8]);
-
-        // Test splice to end
-        l1 = list!int(1, 2);
-        l2 = list!int(3, 4, 5);
-        l1.splice(2, l2);
-        assert(l1.array == [1, 2, 3, 4, 5]);
-        assert(l2.empty);
-
-        // Test splice from empty list
-        l1 = list!int(1, 2);
-        l2 = list!int();
-        l1.splice(0, l2);
-        assert(l1.array == [1, 2]);
-
-        // Test splice to empty list
-        l1 = list!int();
-        l2 = list!int(1, 2, 3);
-        l1.splice(0, l2);
-        assert(l1.array == [1, 2, 3]);
-        assert(l2.empty);
-
-        // Test single element splice
-        l1 = list!int(1, 2, 3);
-        l2 = list!int(4, 5, 6);
-        l1.splice(1, l2, 1, 1);
-        assert(l1.array == [1, 5, 2, 3]);
-        assert(l2.array == [4, 6]);
-    }
-
-    unittest {
-        // Test basic merge
-        list!int l1 = list!int(1, 3, 5);
-        list!int l2 = list!int(2, 4, 6);
-        l1.merge(l2);
-        assert(l1.array == [1, 2, 3, 4, 5, 6]);
-        assert(l2.empty);
-
-        // Test merge with empty lists
-        l1 = list!int();
-        l2 = list!int(1, 2, 3);
-        l1.merge(l2);
-        assert(l1.array == [1, 2, 3]);
-        assert(l2.empty);
-
-        l1 = list!int(1, 2, 3);
-        l2 = list!int();
-        l1.merge(l2);
-        assert(l1.array == [1, 2, 3]);
-        assert(l2.empty);
-
-        // Test merge with duplicate values
-        l1 = list!int(1, 2, 2, 3);
-        l2 = list!int(2, 2, 4);
-        l1.merge(l2);
-        assert(l1.array == [1, 2, 2, 2, 2, 3, 4]);
-        assert(l2.empty);
-
-        // Test merge when all elements from one list are smaller
-        l1 = list!int(1, 2, 3);
-        l2 = list!int(4, 5, 6);
-        l1.merge(l2);
-        assert(l1.array == [1, 2, 3, 4, 5, 6]);
-        assert(l2.empty);
-
-        // Test merge when all elements from one list are larger
-        l1 = list!int(4, 5, 6);
-        l2 = list!int(1, 2, 3);
-        l1.merge(l2);
-        assert(l1.array == [1, 2, 3, 4, 5, 6]);
-        assert(l2.empty);
-    }
-
-    unittest {
-        // Test basic sort
-        list!int l = list!int(3, 1, 4, 1, 5, 9, 2, 6, 5, 3);
-        l.sort();
-        assert(l.array == [1, 1, 2, 3, 3, 4, 5, 5, 6, 9]);
-
-        // Test already sorted list
-        l = list!int(1, 2, 3, 4, 5);
-        l.sort();
-        assert(l.array == [1, 2, 3, 4, 5]);
-
-        // Test reverse sorted list
-        l = list!int(5, 4, 3, 2, 1);
-        l.sort();
-        assert(l.array == [1, 2, 3, 4, 5]);
-
-        // Test list with duplicates
-        l = list!int(3, 3, 3, 2, 2, 1, 1);
-        l.sort();
-        assert(l.array == [1, 1, 2, 2, 3, 3, 3]);
-
-        // Test empty list
-        l = list!int();
-        l.sort();
-        assert(l.empty);
-
-        // Test single element list
-        l = list!int(1);
-        l.sort();
-        assert(l.array == [1]);
-
-        // Test two element list
-        l = list!int(2, 1);
-        l.sort();
-        assert(l.array == [1, 2]);
-
-        // Test list with negative numbers
-        l = list!int(-3, 4, -1, 5, -2, 6);
-        l.sort();
-        assert(l.array == [-3, -2, -1, 4, 5, 6]);
-    }
-
-    unittest {
-        // Test reverse
-        list!int l = list!int(1, 2, 3, 4, 5);
-        l.reverse();
-        assert(l.array == [5, 4, 3, 2, 1]);
-
-        // Test reverse with two elements
-        l = list!int(1, 2);
-        l.reverse();
-        assert(l.array == [2, 1]);
-
-        // Test reverse with one element
-        l = list!int(1);
-        l.reverse();
-        assert(l.array == [1]);
-
-        // Test reverse with empty list
-        l = list!int();
-        l.reverse();
-        assert(l.empty);
-
-        // Test reverse twice returns to original
-        l = list!int(1, 2, 3);
-        l.reverse();
-        l.reverse();
-        assert(l.array == [1, 2, 3]);
-    }
-
-    unittest {
-        // Test unique on sorted list
-        list!int l = list!int(1, 1, 2, 2, 2, 3, 3, 4, 5, 5);
-        l.unique();
-        assert(l.array == [1, 2, 3, 4, 5]);
-
-        // Test unique on already unique list
-        l = list!int(1, 2, 3, 4, 5);
-        l.unique();
-        assert(l.array == [1, 2, 3, 4, 5]);
-
-        // Test unique on empty list
-        l = list!int();
-        l.unique();
-        assert(l.empty);
-
-        // Test unique on single element
-        l = list!int(1);
-        l.unique();
-        assert(l.array == [1]);
-
-        // Test unique on list with all same elements
-        l = list!int(1, 1, 1, 1, 1);
-        l.unique();
-        assert(l.array == [1]);
-
-        // Test unique on unsorted list (only removes consecutive duplicates)
-        l = list!int(1, 2, 2, 1, 1, 3, 2);
-        l.unique();
-        assert(l.array == [1, 2, 1, 3, 2]);
-    }
-}

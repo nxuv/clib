@@ -44,7 +44,7 @@ void main(string[] args)
     assert(q.pop() == 4);
     // still has 5 6
     q.push(8, 3, 4, 54, 6, 72, 18, 9, 10);
-    q.limit_length(7); // cut 72
+    q.limitLength(7); // cut 72
     vector!int v = q.array;
     for (int i = 0; i < v.size; ++i) {
         printf("%i, ", v[i]);
@@ -65,7 +65,7 @@ void main(string[] args)
     printf("Ending tests\n");
     import std.traits;
 
-    map!(int, char, allocator!char) m;
+    map!(int, char) m;
 
     // throw _new!Exception("test");
 }
@@ -73,3 +73,5 @@ void main(string[] args)
 immutable(char)[] asString(bool val) {
     return val ? "true" : "false";
 }
+
+
