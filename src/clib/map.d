@@ -16,6 +16,7 @@ noGC compatible dynamic size container
 
 `map!(int, char)` is equivalent to `int[char]`
 +/
+deprecated("Map is not implemented, do not use")
 struct map(K, V, A: IAllocator!V = allocator!V) {
     alias Node = TreeNode!(K, V);
     alias Pair = TreePair!(K, V);

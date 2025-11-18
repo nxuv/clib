@@ -45,4 +45,5 @@ _check_full FPATH: && _clean_vgcore
 _warning_leak:
     @echo "EXPECT LEAK OF <=72 BYTES UNTIL 23106 IS RESOLVED"
     @echo "23106 moved to https://github.com/dlang/dmd/issues/17446"
+    @echo "Or apparently 96 bytes now..?"
 

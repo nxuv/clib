@@ -9,11 +9,11 @@ sourcePaths "src/"
 importPaths "src/"
 targetPath "bin/"
 
-configuration "library_bc" {
-    targetType "library"
-    dflags "-betterC"
-    sourcePaths "src/"
-    importPaths "src/"
-    targetPath "bin/"
-}
+// configuration "library_bc" {
+//     targetType "library"
+//     dflags "-betterC"
+//     sourcePaths "src/"
+//     importPaths "src/"
+//     targetPath "bin/"
+// }
 

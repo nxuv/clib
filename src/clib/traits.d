@@ -23,6 +23,8 @@ auto assume_nogc_nothrow(T)(T t) if (IS_FUNCTION_POINTER!T || IS_DELEGATE!T) {
 
 @nogc nothrow:
 
+public import std.traits: fullyQualifiedName;
+
 /**
  * Detect whether `T` is a built-in boolean type or enum of boolean base type.
  */

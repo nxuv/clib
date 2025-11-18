@@ -5,7 +5,7 @@
 module clib.typeinfo;
 
 // To prevent usage without reading readme (I hate when people are not reading readme)
-version(D_BetterC) { version = CLIB_USE_TYPEINFO; }
+// version(D_BetterC) { version = CLIB_USE_TYPEINFO; }
 version(CLIB_USE_TYPEINFO):
 
 import clib.string: strcmp;

@@ -50,7 +50,7 @@ public import
     clib.signal,
     clib.stack,
     clib.stdarg,
-    clib.stdatomic,
+    // clib.stdatomic, // missing?
     clib.stddef,
     clib.stdint,
     clib.stdio,
