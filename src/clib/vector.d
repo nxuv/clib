@@ -44,23 +44,12 @@ struct vector(T, A: IAllocator!T = allocator!T) if (!is(T == bool)) {
     @property T front() @nogc nothrow { return _size == 0 ? T.init : _data[0]; }
 
     /// Returns iterator to beginning
-    @property auto begin() @nogc nothrow {
+    @property forward_iterator!(vector!(T, A), T) begin() @nogc nothrow {
         return forward_iterator!(vector!(T, A), T)(this, _size);
     }
-
     /// Returns iterator to end
-    @property auto end() @nogc nothrow {
-        return forward_iterator!(vector!(T, A), T)(this, 0);
-    }
-
-    /// Returns backward iterator to beginning (for reverse iteration)
-    @property auto rbegin() @nogc nothrow {
+    @property backward_iterator!(vector!(T, A), T) end() @nogc nothrow {
         return backward_iterator!(vector!(T, A), T)(this, _size);
-    }
-
-    /// Returns backward iterator to end (for reverse iteration)
-    @property auto rend() @nogc nothrow {
-        return backward_iterator!(vector!(T, A), T)(this, 0);
     }
 
     /++ Returns data pointer and clears vector
@@ -71,24 +60,6 @@ struct vector(T, A: IAllocator!T = allocator!T) if (!is(T == bool)) {
         _data = null;
         free();
         return tmp;
-    }
-
-    /// Implements foreach support
-    int opApply(scope int delegate(ref T) @nogc nothrow dg) @nogc nothrow {
-        for (size_t i = 0; i < _size; ++i) {
-            int result = dg(_data[i]);
-            if (result) return result;
-        }
-        return 0;
-    }
-
-    /// Implements foreach_reverse support
-    int opApplyReverse(scope int delegate(ref T) @nogc nothrow dg) @nogc nothrow {
-        for (size_t i = _size; i > 0; --i) {
-            int result = dg(_data[i - 1]);
-            if (result) return result;
-        }
-        return 0;
     }
 
     static if (is(T == char)) {
@@ -598,9 +569,14 @@ struct vector(T, A: IAllocator!T = allocator!T) if (!is(T == bool)) {
     }
 
     unittest {
+        int[3] a = [1, 2, 3];
         vector!int v = vector!int(3, 2, 1);
-        vector!int other = vector!int(1, 2, 3);
-        vector!int b = v ~ other;
+        vector!int b = v ~ a;
+        assert(b == [3, 2, 1, 1, 2, 3]);
+        b = a ~ v;
+        assert(b == [1, 2, 3, 3, 2, 1]);
+        b = a;
+        b = v ~ b;
         assert(b == [3, 2, 1, 1, 2, 3]);
     }
 
@@ -745,48 +721,4 @@ struct vector(T, A: IAllocator!T = allocator!T) if (!is(T == bool)) {
         free(sz);
     }
 
-    unittest {
-        // Test iterators
-        vector!int v;
-        v.reserve(5);
-        v.push(1);
-        v.push(2);
-        v.push(3);
-        v.push(4);
-        v.push(5);
-
-        // Test forward iteration with begin/end
-        {
-            auto it = v.begin();
-            assert(!it.empty);
-            assert(it.front == 1);
-            assert(it.popFront().front == 2);
-        }
-
-        // Test reverse iteration with rbegin/rend
-        {
-            auto rit = v.rbegin();
-            assert(!rit.empty);
-            assert(rit.back == 5);
-            assert(rit.popBack().back == 4);
-        }
-
-        // Test foreach iteration
-        {
-            int i = 1;
-            foreach (ref val; v) {
-                assert(val == i);
-                ++i;
-            }
-        }
-
-        // Test foreach_reverse iteration
-        {
-            int i = 5;
-            foreach_reverse (ref val; v) {
-                assert(val == i);
-                --i;
-            }
-        }
-    }
 }

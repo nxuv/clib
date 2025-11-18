@@ -45,34 +45,9 @@ struct list(T, A: IAllocator!T = allocator!T) {
     @property forward_iterator!(list!(T, A), T) begin() @nogc nothrow {
         return forward_iterator!(list!(T, A), T)(this, _size);
     }
-
     /// Returns iterator to end
-    @property forward_iterator!(list!(T, A), T) end() @nogc nothrow {
-        return forward_iterator!(list!(T, A), T)(this, 0);
-    }
-
-    /// Returns backward iterator to beginning (for reverse iteration)
-    @property backward_iterator!(list!(T, A), T) rbegin() @nogc nothrow {
+    @property backward_iterator!(list!(T, A), T) end() @nogc nothrow {
         return backward_iterator!(list!(T, A), T)(this, _size);
-    }
-
-    /// Returns backward iterator to end (for reverse iteration)
-    @property backward_iterator!(list!(T, A), T) rend() @nogc nothrow {
-        return backward_iterator!(list!(T, A), T)(this, 0);
-    }
-
-    /// Returns value at index
-    T opIndex(size_t index) @nogc nothrow {
-        if (index >= _size) return T.init;
-        Node* n = get_node_at(index);
-        return n ? n.value : T.init;
-    }
-
-    /// Sets value at index
-    void opIndexAssign(T val, size_t index) @nogc nothrow {
-        if (index >= _size) return;
-        Node* n = get_node_at(index);
-        if (n !is null) n.value = val;
     }
 
     /// Creates list filled with vals
@@ -127,6 +102,22 @@ struct list(T, A: IAllocator!T = allocator!T) {
 
     void opOpAssign(string op: "~")( in T[] b ) @nogc nothrow {
         push_back(b);
+    }
+
+    /// Ditto
+    void opIndexAssign(T val, size_t index) @nogc nothrow {
+        if (index >= _size || _size == 0) return;
+        Node* n = get_node_at(index);
+        import std.format: format;
+        if (n != null) (*n).value = val;
+    }
+
+    /// Returns element of vector or T.init
+    T opIndex(size_t index) @nogc nothrow {
+        if (index >= _size || _size == 0) return T.init;
+        Node* n = get_node_at(index);
+        if (n == null) return T.init;
+        return (*n).value;
     }
 
     /// Removes element at `pos`
@@ -646,32 +637,6 @@ struct list(T, A: IAllocator!T = allocator!T) {
             }
         }
     }
-
-    /// Implements foreach support
-    int opApply(scope int delegate(ref T) @nogc nothrow dg) @nogc nothrow {
-        if (_root is null) return 0;
-
-        Node* current = _root;
-        while (current !is null) {
-            int result = dg(current.value);
-            if (result) return result;
-            current = current.next;
-        }
-        return 0;
-    }
-
-    /// Implements foreach_reverse support
-    int opApplyReverse(scope int delegate(ref T) @nogc nothrow dg) @nogc nothrow {
-        if (_end is null) return 0;
-
-        Node* current = _end;
-        while (current !is null) {
-            int result = dg(current.value);
-            if (result) return result;
-            current = current.prev;
-        }
-        return 0;
-    }
 }
 
 @nogc nothrow {
@@ -744,40 +709,18 @@ struct list(T, A: IAllocator!T = allocator!T) {
     }
 
     unittest {
-        list!int l = list!int(1, 2, 3, 4, 5);
-
-        // Test forward iteration with begin/end
-        {
-            auto it = l.begin();
-            assert(!it.empty);
-            assert(it.front == 1);
-            assert(it.popFront().front == 2);
+        list!int l = list!int(1, 2, 4, 2, 6, 1);
+        int[6] a = [1, 2, 4, 2, 6, 1];
+        int i = 0;
+        foreach (v; l.begin()) {
+            assert(a[i] == v);
+            ++i;
         }
 
-        // Test reverse iteration with rbegin/rend
-        {
-            auto rit = l.rbegin();
-            assert(!rit.empty);
-            assert(rit.back == 5);
-            assert(rit.popBack().back == 4);
-        }
-
-        // Test foreach iteration
-        {
-            int i = 1;
-            foreach (ref val; l) {
-                assert(val == i);
-                ++i;
-            }
-        }
-
-        // Test foreach_reverse iteration
-        {
-            int i = 5;
-            foreach_reverse (ref val; l) {
-                assert(val == i);
-                --i;
-            }
+        i = 5;
+        foreach_reverse (v; l.end()) {
+            assert(a[i] == v);
+            --i;
         }
     }
 
@@ -969,72 +912,5 @@ struct list(T, A: IAllocator!T = allocator!T) {
         l = list!int(1, 2, 2, 1, 1, 3, 2);
         l.unique();
         assert(l.array == [1, 2, 1, 3, 2]);
-    }
-
-    unittest {
-        // Test iterators
-        list!int l = list!int(1, 2, 3, 4, 5);
-
-        // Test forward iteration with begin/end
-        {
-            auto it = l.begin();
-            assert(!it.empty);
-            assert(it.front == 1);
-            assert(it.popFront().front == 2);
-        }
-
-        // Test reverse iteration with rbegin/rend
-        {
-            auto rit = l.rbegin();
-            assert(!rit.empty);
-            assert(rit.back == 5);
-            assert(rit.popBack().back == 4);
-        }
-
-        // Test foreach iteration
-        {
-            int i = 1;
-            foreach (ref val; l) {
-                assert(val == i);
-                ++i;
-            }
-        }
-
-        // Test foreach_reverse iteration
-        {
-            int i = 5;
-            foreach_reverse (ref val; l) {
-                assert(val == i);
-                --i;
-            }
-        }
-    }
-
-    unittest {
-        // Test reverse iteration order
-        list!int l = list!int(1, 2, 3, 4, 5);
-
-        // Test rbegin/rend iteration order
-        auto rit = l.rbegin();
-        assert(!rit.empty);
-        assert(rit.back == 5);
-        rit.popBack();
-        assert(rit.back == 4);
-        rit.popBack();
-        assert(rit.back == 3);
-        rit.popBack();
-        assert(rit.back == 2);
-        rit.popBack();
-        assert(rit.back == 1);
-        rit.popBack();
-        assert(rit.empty);
-
-        // Test foreach_reverse order
-        int[5] expected = [5, 4, 3, 2, 1];
-        size_t i = 0;
-        foreach_reverse (val; l) {
-            assert(val == expected[i]);
-            ++i;
-        }
     }
 }
